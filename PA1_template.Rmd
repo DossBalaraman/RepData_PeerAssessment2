@@ -1,25 +1,116 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research - Peer Assessment 1"
+author: "Doss Balaraman"
+date: "Sunday, November 15, 2015"
+output: html_document
 ---
+```{r}
+echo = TRUE  # Code visible
+options(scipen = 1)  # Turning off scientific notation
+data <- read.csv("activity.csv", colClasses = c("integer", "Date", "factor"))
+data$month <- as.numeric(format(data$date, "%m"))
+noNA <- na.omit(data)
+rownames(noNA) <- 1:nrow(noNA)
+head(noNA)
+```
+## Histogram of Total Number of Steps Taken Per Day:
+```{r}
+library(ggplot2)
+ggplot(noNA, aes(date, steps)) + geom_bar(stat = "identity", colour = "steelblue", fill = "steelblue", width = 0.7) + facet_grid(. ~ month, scales = "free") + labs(title = "Histogram of Total Number of Steps Taken Each Day", x = "Date", y = "Total number of steps")
+```
 
+## Mean Total Number of Steps per Day
+```{r}
+totalSteps <- aggregate(noNA$steps, list(Date = noNA$date), FUN = "sum")$x
+mean(totalSteps)
+```
 
-## Loading and preprocessing the data
+## Median total number of steps taken per day:
+```{r}
+median(totalSteps)
+```
 
+## Time Series Plot:
+```{r}
+avgSteps <- aggregate(noNA$steps, list(interval = as.numeric(as.character(noNA$interval))), FUN = "mean")
+names(avgSteps)[2] <- "meanOfSteps"
+ggplot(avgSteps, aes(interval, meanOfSteps)) + geom_line(color = "steelblue", size = 0.8) + labs(title = "Time Series Plot of the 5-minute Interval", x = "5-minute intervals", y = "Average Number of Steps Taken")
+```
 
+## Maximum Number of Steps among 5 min intervals:
+```{r}
+avgSteps[avgSteps$meanOfSteps == max(avgSteps$meanOfSteps), ]
+```
 
-## What is mean total number of steps taken per day?
+## Number of rows with missing data:
+```{r}
+sum(is.na(data))
+```
 
+## Use 5 min avg to replace missing values:
+```{r}
+newData <- data 
+for (i in 1:nrow(newData)) {
+    if (is.na(newData$steps[i])) {
+        newData$steps[i] <- avgSteps[which(newData$interval[i] == avgSteps$interval), ]$meanOfSteps
+    }
+}
+head(newData)
+sum(is.na(newData))
+```
 
+## Histogram with mean/median for new data after replacing missing values:
+```{r}
+ggplot(newData, aes(date, steps)) + geom_bar(stat = "identity",
+                                             colour = "steelblue",
+                                             fill = "steelblue",
+                                             width = 0.7) + facet_grid(. ~ month, scales = "free") + labs(title = "Histogram of Total Number of Steps Taken Each Day (no missing data)", x = "Date", y = "Total number of steps")
+```
 
-## What is the average daily activity pattern?
+## New Mean:
+```{r}
+newTotalSteps <- aggregate(newData$steps, 
+                           list(Date = newData$date), 
+                           FUN = "sum")$x
+newMean <- mean(newTotalSteps)
+newMean 
+```
 
+## New Median:
+```{r}
+newMedian <- median(newTotalSteps)
+newMedian
+```
 
+## Comparison BEFORE and AFTER replacing missing values:
+```{r}
+oldMean <- mean(totalSteps)
+oldMedian <- median(totalSteps)
+newMean - oldMean
+newMedian - oldMedian
+```
 
-## Imputing missing values
+## Weekdays and Weekends:
+```{r}
+newData$weekdays <- factor(format(newData$date, "%A"))
+levels(newData$weekdays) 
+levels(newData$weekdays) <- list(weekday = c("Monday", "Tuesday",
+                                             "Wednesday", 
+                                             "Thursday", "Friday"),
+                                 weekend = c("Saturday", "Sunday"))
+levels(newData$weekdays)
+table(newData$weekdays)
+```
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+## Time Series Plot of all weekdays and weekends:
+```{r}
+avgSteps <- aggregate(newData$steps, 
+                      list(interval = as.numeric(as.character(newData$interval)), 
+                           weekdays = newData$weekdays),
+                      FUN = "mean")
+names(avgSteps)[3] <- "meanOfSteps"
+library(lattice)
+xyplot(avgSteps$meanOfSteps ~ avgSteps$interval | avgSteps$weekdays, 
+       layout = c(1, 2), type = "l", 
+       xlab = "Interval", ylab = "Number of steps")
+```
